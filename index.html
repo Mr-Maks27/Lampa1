@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShadeForge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.15/index.min.css" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#060610;color:#ddd;overflow:hidden;height:100vh}
+.glass{background:rgba(22,22,42,0.85);backdrop-filter:blur(14px);border:1px solid rgba(251,191,36,0.1)}
+.btn-p{padding:5px 8px;border-radius:6px;border:1px solid rgba(251,191,36,0.12);background:rgba(22,22,42,0.5);color:#888;cursor:pointer;font-size:10px;transition:all .15s;white-space:nowrap}
+.btn-p:hover{color:#ddd;border-color:rgba(251,191,36,0.3)}
+.btn-p.active{border-color:#f59e0b;color:#fbbf24;background:rgba(180,83,9,0.2)}
+.btn-ex{background:linear-gradient(135deg,#f59e0b,#d97706);padding:10px 20px;border-radius:8px;border:none;color:#000;font-weight:700;font-size:13px;cursor:pointer;transition:all .2s}
+.btn-ex:hover{transform:translateY(-1px)}
+.toggle{position:relative;width:36px;height:20px;background:rgba(42,42,62,0.8);border-radius:10px;cursor:pointer;transition:all .3s;flex-shrink:0}
+.toggle.on{background:rgba(245,158,11,0.5)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#555;border-radius:50%;transition:all .3s}
+.toggle.on::after{left:18px;background:#fbbf24}
+.preset{padding:7px;border-radius:7px;border:1px solid rgba(251,191,36,0.08);background:rgba(17,17,34,0.4);cursor:pointer;transition:all .2s;text-align:center}
+.preset:hover{border-color:rgba(251,191,36,0.2)}
+.preset.active{border-color:#f59e0b;background:rgba(180,83,9,0.12)}
+.preset-i{font-size:16px}.preset-n{font-size:9px;color:#aaa;margin-top:1px}
+.profile-cv{background:rgba(8,8,18,0.9);border-radius:8px;border:1px solid rgba(251,191,36,0.15);cursor:crosshair}
+.badge-ok{display:inline-flex;align-items:center;gap:3px;padding:2px 5px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:4px;font-size:9px;color:#4ade80}
+.badge-w{display:inline-flex;align-items:center;gap:3px;padding:2px 5px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:4px;font-size:9px;color:#f87171}
+.sl{font-size:10px;font-weight:600;color:#f59e0b;margin-bottom:5px;display:flex;align-items:center;gap:4px}
+.sep{height:1px;background:rgba(251,191,36,0.08);margin:7px 0}
+.zs{width:100%;background:rgba(17,17,34,0.8);border:1px solid rgba(251,191,36,0.15);border-radius:5px;padding:3px 6px;color:#ddd;font-size:10px;outline:none}
+.zs option{background:#111122}
+input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:linear-gradient(90deg,#2a2a3e,#b45309);outline:none;margin:3px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#d97706);cursor:pointer;box-shadow:0 0 6px rgba(251,191,36,0.3)}
+#canvas-container{width:100%;height:100%;position:absolute;top:0;left:0}
+.tab-r{display:flex;gap:2px;margin-bottom:5px}
+.tab-b{padding:3px 8px;border-radius:4px;border:none;background:transparent;color:#666;cursor:pointer;font-size:9px;font-weight:600;transition:all .15s}
+.tab-b.active{background:rgba(251,191,36,0.12);color:#fbbf24}
+.lp{background:rgba(8,8,18,0.9);border-radius:7px;border:1px solid rgba(251,191,36,0.1)}
+.up{background:rgba(8,8,18,0.9);border-radius:7px;border:1px solid rgba(251,191,36,0.1)}
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+
+<div class="absolute top-3 left-3 w-52 space-y-2 overflow-y-auto" style="max-height:calc(100vh - 24px);padding-bottom:10px">
+    <div class="glass rounded-lg p-2">
+        <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
+            </div>
+            <h1 class="text-sm font-bold text-white">ShadeForge</h1>
+        </div>
+    </div>
+
+    <div class="glass rounded-lg p-2">
+        <div class="sl">Пресеты</div>
+        <div class="grid grid-cols-3 gap-1" id="presets"></div>
+    </div>
+
+    <div class="glass rounded-lg p-2">
+        <div class="sl">Профиль формы <span class="ml-auto text-[8px] text-gray-500">тяни точки</span></div>
+        <canvas id="prof-cv" class="profile-cv" width="190" height="140" style="width:100%"></canvas>
+        <div class="flex gap-1 mt-1">
+            <button class="btn-p flex-1 text-[9px]" id="prof-add">+ Точка</button>
+            <button class="btn-p flex-1 text-[9px]" id="prof-rst">Сброс</button>
+        </div>
+    </div>
+
+    <div class="glass rounded-lg p-2">
+        <div class="sl">Размеры</div>
+        <div class="space-y-2">
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Высота</span><span class="text-[9px] text-gold-400 font-mono" id="v-h">150</span></div><input type="range" id="s-h" min="40" max="300" value="150" step="5"></div>
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Верх ⌀</span><span class="text-[9px] text-gold-400 font-mono" id="v-td">80</span></div><input type="range" id="s-td" min="20" max="180" value="80" step="5"></div>
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Низ ⌀</span><span class="text-[9px] text-gold-400 font-mono" id="v-bd">150</span></div><input type="range" id="s-bd" min="40" max="280" value="150" step="5"></div>
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Середина ⌀</span><span class="text-[9px] text-gold-400 font-mono" id="v-md">—</span></div><input type="range" id="s-md" min="0" max="250" value="120" step="5"></div>
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Скругл. верха</span><span class="text-[9px] text-gold-400 font-mono" id="v-ft">0</span></div><input type="range" id="s-ft" min="0" max="20" value="0" step="1"></div>
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Скругл. низа</span><span class="text-[9px] text-gold-400 font-mono" id="v-fb">0</span></div><input type="range" id="s-fb" min="0" max="20" value="0" step="1"></div>
+        </div>
+    </div>
+
+    <div class="glass rounded-lg p-2">
+        <div class="sl">Паттерн</div>
+        <div class="grid grid-cols-3 gap-1" id="pats"></div>
+    </div>
+
+    <div class="glass rounded-lg p-2">
+        <div class="sl">Зоны</div>
+        <div class="space-y-1">
+            <div class="flex items-center gap-2"><div class="w-1.5 rounded" style="background:#fbbf24;height:14px"></div><select class="zs flex-1" id="z-t"><option value="solid">Сплошной</option><option value="hex">Шестиуг.</option><option value="diamond">Ромбы</option><option value="circle">Круги</option><option value="wave">Волна</option><option value="lines">Полосы</option></select></div>
+            <div class="flex items-center gap-2"><div class="w-1.5 rounded" style="background:#f59e0b;height:14px"></div><select class="zs flex-1" id="z-m"><option value="hex">Шестиуг.</option><option value="solid">Сплошной</option><option value="diamond">Ромбы</option><option value="circle">Круги</option><option value="wave">Волна</option><option value="lines">Полосы</option></select></div>
+            <div class="flex items-center gap-2"><div class="w-1.5 rounded" style="background:#d97706;height:14px"></div><select class="zs flex-1" id="z-b"><option value="diamond">Ромбы</option><option value="solid">Сплошной</option><option value="hex">Шестиуг.</option><option value="circle">Круги</option><option value="wave">Волна</option><option value="lines">Полосы</option></select></div>
+        </div>
+    </div>
+
+    <div class="glass rounded-lg p-2">
+        <div class="sl">Настройки</div>
+        <div class="space-y-2">
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Отверстия</span><span class="text-[9px] text-gold-400 font-mono" id="v-hs">8</span></div><input type="range" id="s-hs" min="2" max="18" value="8" step="1"></div>
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Плотность</span><span class="text-[9px] text-gold-400 font-mono" id="v-dn">6</span></div><input type="range" id="s-dn" min="2" max="14" value="6" step="1"></div>
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Толщина</span><span class="text-[9px] text-gold-400 font-mono" id="v-th">1.5</span></div><input type="range" id="s-th" min="0.8" max="3" value="1.5" step="0.1"></div>
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Рёбра</span><span class="text-[9px] text-gold-400 font-mono" id="v-ri">0</span></div><input type="range" id="s-ri" min="0" max="12" value="0" step="1"></div>
+            <div><div class="flex justify-between"><span class="text-[9px] text-gray-400">Сегменты</span><span class="text-[9px] text-gold-400 font-mono" id="v-sg">36</span></div><input type="range" id="s-sg" min="12" max="72" value="36" step="4"></div>
+        </div>
+    </div>
+
+    <div class="glass rounded-lg p-2">
+        <div class="sl">Опции</div>
+        <div class="space-y-1">
+            <div class="flex items-center justify-between"><span class="text-[9px] text-gray-400">Свет</span><div class="toggle on" id="t-light"></div></div>
+            <div class="flex items-center justify-between"><span class="text-[9px] text-gray-400">Вращение</span><div class="toggle on" id="t-rot"></div></div>
+            <div class="flex items-center justify-between"><span class="text-[9px] text-gray-400">Крепление</span><div class="toggle on" id="t-mnt"></div></div>
+            <div class="flex items-center justify-between"><span class="text-[9px] text-gray-400">Ободок</span><div class="toggle on" id="t-rim"></div></div>
+        </div>
+    </div>
+
+    <div class="glass rounded-lg p-2">
+        <div class="sl">Проверка</div>
+        <div class="space-y-1" id="checks"></div>
+    </div>
+
+    <button class="btn-ex w-full flex items-center justify-center gap-2" id="export">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/></svg>
+        STL
+    </button>
+</div>
+
+<div class="absolute top-3 right-3 w-40 space-y-2">
+    <div class="glass rounded-lg p-2">
+        <div class="sl">Свет</div>
+        <canvas id="light-cv" width="140" height="110" class="lp" style="width:100%"></canvas>
+    </div>
+    <div class="glass rounded-lg p-2">
+        <div class="sl">Развёртка</div>
+        <div class="tab-r">
+            <button class="tab-b active" data-z="top">Верх</button>
+            <button class="tab-b" data-z="mid">Серед</button>
+            <button class="tab-b" data-z="bot">Низ</button>
+        </div>
+        <canvas id="unfold-cv" width="140" height="110" class="up" style="width:100%"></canvas>
+    </div>
+</div>
+
+<script>
+(function(){
+var W=window.innerWidth,H=window.innerHeight;
+
+// === THREE.JS ===
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(0x060610);
+var camera=new THREE.PerspectiveCamera(50,W/H,1,3000);
+camera.position.set(220,180,280);
+
+var renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(W,H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.0;
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+var ctrl=new THREE.OrbitControls(camera,renderer.domElement);
+ctrl.enableDamping=true;ctrl.dampingFactor=0.06;ctrl.autoRotate=true;ctrl.autoRotateSpeed=1;
+ctrl.minDistance=80;ctrl.maxDistance=600;
+
+scene.add(new THREE.AmbientLight(0x334466,0.4));
+var dL=new THREE.DirectionalLight(0xffffff,0.6);dL.position.set(100,200,100);dL.castShadow=true;scene.add(dL);
+var fL=new THREE.DirectionalLight(0x6666aa,0.2);fL.position.set(-100,80,-80);scene.add(fL);
+
+var iL=new THREE.PointLight(0xffaa44,1.5,400);iL.position.set(0,80,0);scene.add(iL);
+var bG=new THREE.SphereGeometry(6,16,16);
+var bM=new THREE.MeshBasicMaterial({color:0xffcc66,transparent:true,opacity:0.6});
+var bMesh=new THREE.Mesh(bG,bM);bMesh.position.set(0,80,0);scene.add(bMesh);
+
+scene.add(new THREE.GridHelper(400,20,0x111128,0x0a0a18));
+
+// === STATE ===
+var P={h:150,topD:80,botD:150,midD:120,fTop:0,fBot:0,pat:'hex',hole:8,dens:6,thick:1.5,ribs:0,segs:36};
+var zT='solid',zM='hex',zB='diamond';
+var sLight=true,sMnt=true,sRim=true;
+var lampGroup=null;
+
+var profPts=[{y:0,r:75},{y:1,r:40}];
+var profDrag=-1;
+var useProf=false;
+
+// === UI ===
+var presets=[
+    {n:'Классика',i:'🏛️',p:{h:150,topD:80,botD:150,midD:0,fTop:0,fBot:0,pat:'diamond',hole:10,dens:6,thick:1.5,ribs:0,segs:36}},
+    {n:'Модерн',i:'🔷',p:{h:180,topD:60,botD:160,midD:0,fTop:0,fBot:0,pat:'hex',hole:12,dens:7,thick:1.5,ribs:0,segs:36}},
+    {n:'Купол',i:'🕌',p:{h:140,topD:40,botD:160,midD:0,fTop:0,fBot:0,pat:'circle',hole:8,dens:8,thick:1.5,ribs:0,segs:36}},
+    {n:'Колокол',i:'🔔',p:{h:200,topD:50,botD:180,midD:130,fTop:0,fBot:0,pat:'wave',hole:10,dens:6,thick:1.5,ribs:2,segs:36}},
+    {n:'Ваза',i:'🏺',p:{h:200,topD:70,botD:60,midD:100,fTop:3,fBot:5,pat:'hex',hole:8,dens:6,thick:1.5,ribs:0,segs:36}},
+    {n:'Бочка',i:'🛢️',p:{h:160,topD:80,botD:80,midD:120,fTop:3,fBot:3,pat:'diamond',hole:10,dens:6,thick:1.5,ribs:0,segs:36}},
+    {n:'Минимал',i:'◽',p:{h:120,topD:100,botD:120,midD:0,fTop:0,fBot:0,pat:'solid',hole:0,dens:8,thick:2,ribs:0,segs:36}},
+    {n:'Органика',i:'🌿',p:{h:180,topD:70,botD:160,midD:0,fTop:0,fBot:0,pat:'hex',hole:14,dens:5,thick:2,ribs:0,segs:48}},
+    {n:'Лампа',i:'💡',p:{h:100,topD:30,botD:120,midD:0,fTop:0,fBot:0,pat:'circle',hole:6,dens:8,thick:1.5,ribs:0,segs:36}},
+];
+
+var prDiv=document.getElementById('presets');
+presets.forEach(function(pr,x){
+    var d=document.createElement('div');
+    d.className='preset'+(x===0?' active':'');
+    d.innerHTML='<div class="preset-i">'+pr.i+'</div><div class="preset-n">'+pr.n+'</div>';
+    d.addEventListener('click',function(){
+        prDiv.querySelectorAll('.preset').forEach(function(e){e.classList.remove('active');});
+        d.classList.add('active');
+        Object.assign(P,pr.p);
+        profPts=[{y:0,r:P.botD/2},{y:1,r:P.topD/2}];useProf=false;
+        syncUI();drawProf();regenerate();
+    });
+    prDiv.appendChild(d);
+});
+
+var patDiv=document.getElementById('pats');
+[{k:'hex',l:'Шестиуг.'},{k:'diamond',l:'Ромбы'},{k:'circle',l:'Круги'},{k:'wave',l:'Волна'},{k:'lines',l:'Полосы'},{k:'solid',l:'Сплошной'}].forEach(function(p){
+    var b=document.createElement('button');
+    b.className='btn-p'+(p.k==='hex'?' active':'');
+    b.dataset.p=p.k;b.textContent=p.l;
+    b.addEventListener('click',function(){
+        patDiv.querySelectorAll('.btn-p').forEach(function(e){e.classList.remove('active');});
+        b.classList.add('active');P.pat=b.dataset.p;regenerate();
+    });
+    patDiv.appendChild(b);
+});
+
+function syncUI(){
+    [['s-h','v-h',P.h],['s-td','v-td',P.topD],['s-bd','v-bd',P.botD],['s-md','v-md',P.midD||'—'],['s-ft','v-ft',P.fTop],['s-fb','v-fb',P.fBot],['s-hs','v-hs',P.hole],['s-dn','v-dn',P.dens],['s-th','v-th',P.thick],['s-ri','v-ri',P.ribs],['s-sg','v-sg',P.segs]].forEach(function(s){
+        document.getElementById(s[0]).value=typeof s[2]==='number'?s[2]:document.getElementById(s[0]).value;
+        document.getElementById(s[1]).textContent=s[2];
+    });
+}
+
+var sliders=[['s-h','h'],['s-td','topD'],['s-bd','botD'],['s-md','midD'],['s-ft','fTop'],['s-fb','fBot'],['s-hs','hole'],['s-dn','dens'],['s-th','thick'],['s-ri','ribs'],['s-sg','segs']];
+sliders.forEach(function(s){
+    var sl=document.getElementById(s[0]),dsp=document.getElementById('v-'+s[0].split('-')[1]);
+    sl.addEventListener('input',function(){P[s[1]]=parseFloat(sl.value);dsp.textContent=sl.value;});
+    sl.addEventListener('change',regenerate);
+});
+
+document.getElementById('z-t').addEventListener('change',function(){zT=this.value;regenerate();});
+document.getElementById('z-m').addEventListener('change',function(){zM=this.value;regenerate();});
+document.getElementById('z-b').addEventListener('change',function(){zB=this.value;regenerate();});
+
+function toggle(id,cb){var el=document.getElementById(id);el.addEventListener('click',function(){el.classList.toggle('on');cb(el.classList.contains('on'));});}
+toggle('t-light',function(v){sLight=v;iL.visible=v;bMesh.visible=v;drawLight();});
+toggle('t-rot',function(v){ctrl.autoRotate=v;});
+toggle('t-mnt',function(v){sMnt=v;regenerate();});
+toggle('t-rim',function(v){sRim=v;regenerate();});
+
+// === PROFILE EDITOR ===
+var profCv=document.getElementById('prof-cv');
+var pCtx=profCv.getContext('2d');
+
+function drawProf(){
+    var W2=profCv.width,H2=profCv.height;
+    pCtx.clearRect(0,0,W2,H2);
+    pCtx.strokeStyle='rgba(251,191,36,0.06)';pCtx.lineWidth=1;
+    for(var i=0;i<=5;i++){pCtx.beginPath();pCtx.moveTo(i*W2/5,0);pCtx.lineTo(i*W2/5,H2);pCtx.stroke();pCtx.beginPath();pCtx.moveTo(0,i*H2/5);pCtx.lineTo(W2,i*H2/5);pCtx.stroke();}
+
+    if(profPts.length<2){pCtx.fillStyle='#555';pCtx.font='10px Inter';pCtx.textAlign='center';pCtx.fillText('Мин 2 точки',W2/2,H2/2);return;}
+
+    var sorted=profPts.slice().sort(function(a,b){return a.y-b.y;});
+    var cx=W2*0.1,mxW=W2*0.9;
+
+    function toXY(pt){return{x:cx+pt.r/140*(mxW-cx),y:H2-8-pt.y*(H2-16)};}
+    var ptsR=sorted.map(toXY);
+    var ptsL=ptsR.map(function(p){return{x:cx-(p.x-cx),y:p.y};});
+
+    // Fill
+    pCtx.fillStyle='rgba(251,191,36,0.04)';
+    pCtx.beginPath();
+    ptsL.forEach(function(p){pCtx.lineTo(p.x,p.y);});
+    for(var i=ptsR.length-1;i>=0;i--)pCtx.lineTo(ptsR[i].x,ptsR[i].y);
+    pCtx.closePath();pCtx.fill();
+
+    // Right curve
+    pCtx.strokeStyle='rgba(251,191,36,0.3)';pCtx.lineWidth=1.5;
+    pCtx.beginPath();pCtx.moveTo(ptsR[0].x,ptsR[0].y);
+    if(ptsR.length>=3){for(var i=0;i<ptsR.length-1;i++){var p0=ptsR[Math.max(0,i-1)],p1=ptsR[i],p2=ptsR[i+1],p3=ptsR[Math.min(ptsR.length-1,i+2)];pCtx.bezierCurveTo(p1.x+(p2.x-p0.x)/6,p1.y+(p2.y-p0.y)/6,p2.x-(p3.x-p1.x)/6,p2.y-(p3.y-p1.y)/6,p2.x,p2.y);}}
+    else{pCtx.lineTo(ptsR[1].x,ptsR[1].y);}
+    pCtx.stroke();
+
+    // Left curve
+    pCtx.beginPath();pCtx.moveTo(ptsL[0].x,ptsL[0].y);
+    if(ptsL.length>=3){for(var i=0;i<ptsL.length-1;i++){var p0=ptsL[Math.max(0,i-1)],p1=ptsL[i],p2=ptsL[i+1],p3=ptsL[Math.min(ptsL.length-1,i+2)];pCtx.bezierCurveTo(p1.x+(p2.x-p0.x)/6,p1.y+(p2.y-p0.y)/6,p2.x-(p3.x-p1.x)/6,p2.y-(p3.y-p1.y)/6,p2.x,p2.y);}}
+    else{pCtx.lineTo(ptsL[1].x,ptsL[1].y);}
+    pCtx.stroke();
+
+    // Center line
+    pCtx.strokeStyle='rgba(251,191,36,0.1)';pCtx.setLineDash([2,3]);pCtx.beginPath();pCtx.moveTo(cx,0);pCtx.lineTo(cx,H2);pCtx.stroke();pCtx.setLineDash([]);
+
+    // Dots
+    sorted.forEach(function(pt){
+        var p=toXY(pt);
+        pCtx.beginPath();pCtx.arc(p.x,p.y,4,0,Math.PI*2);pCtx.fillStyle='#fbbf24';pCtx.fill();pCtx.strokeStyle='#d97706';pCtx.lineWidth=1;pCtx.stroke();
+    });
+}
+
+profCv.addEventListener('mousedown',function(e){
+    var rect=profCv.getBoundingClientRect();
+    var mx=(e.clientX-rect.left)*(profCv.width/rect.width);
+    var my=(e.clientY-rect.top)*(profCv.height/rect.height);
+    var cx2=profCv.width*0.1;
+    for(var i=0;i<profPts.length;i++){
+        var pt=profPts[i];
+        var px=cx2+pt.r/140*(profCv.width*0.9-cx2);
+        var py=profCv.height-8-pt.y*(profCv.height-16);
+        if(Math.hypot(mx-px,my-py)<8){profDrag=i;drawProf();return;}
+    }
+    var r=Math.max(10,Math.min(140,(mx-cx2)*140/(profCv.width*0.9-cx2)));
+    var y=Math.max(0,Math.min(1,(profCv.height-8-my)/(profCv.height-16)));
+    profPts.push({r:r,y:y});useProf=true;drawProf();regenerate();
+});
+
+profCv.addEventListener('mousemove',function(e){
+    if(profDrag<0)return;
+    var rect=profCv.getBoundingClientRect();
+    var mx=(e.clientX-rect.left)*(profCv.width/rect.width);
+    var my=(e.clientY-rect.top)*(profCv.height/rect.height);
+    var cx2=profCv.width*0.1;
+    profPts[profDrag].r=Math.max(10,Math.min(140,(mx-cx2)*140/(profCv.width*0.9-cx2)));
+    profPts[profDrag].y=Math.max(0,Math.min(1,(profCv.height-8-my)/(profCv.height-16)));
+    drawProf();
+});
+
+profCv.addEventListener('mouseup',function(){profDrag=-1;useProf=profPts.length>=2;drawProf();regenerate();});
+profCv.addEventListener('mouseleave',function(){profDrag=-1;useProf=profPts.length>=2;drawProf();regenerate();});
+
+document.getElementById('prof-add').addEventListener('click',function(){
+    var y=0.5;
+    if(profPts.length>=2){var s=profPts.slice().sort(function(a,b){return a.y-b.y;});var m=Math.floor(s.length/2);y=(s[m].y+s[m-1].y)/2;}
+    var r=P.topD/2+(P.botD/2-P.topD/2)*y;
+    profPts.push({r:r,y:y});useProf=true;drawProf();regenerate();
+});
+document.getElementById('prof-rst').addEventListener('click',function(){profPts=[{y:0,r:P.botD/2},{y:1,r:P.topD/2}];useProf=false;drawProf();regenerate();});
+
+// === RADIUS FUNCTION ===
+function getR(t){
+    if(useProf&&profPts.length>=2){
+        var s=profPts.slice().sort(function(a,b){return a.y-b.y;});
+        if(t<=s[0].y)return s[0].r;
+        if(t>=s[s.length-1].y)return s[s.length-1].r;
+        for(var i=0;i<s.length-1;i++){
+            if(t>=s[i].y&&t<=s[i+1].y){
+                var lt=(t-s[i].y)/(s[i+1].y-s[i].y);
+                lt=lt*lt*(3-2*lt);
+                return s[i].r+(s[i+1].r-s[i].r)*lt;
+            }
+        }
+        return s[s.length-1].r;
+    }
+    var topR=P.topD/2,botR=P.botD/2,midR=P.midD/2;
+    if(midR>0){
+        var c=botR;
+        var a=4*((topR-botR)/2-(midR-botR));
+        var b=topR-botR-a;
+        return Math.max(a*t*t+b*t+c,1);
+    }
+    return botR+(topR-botR)*t;
+}
+
+// === HOLE DETECTION ===
+function isHole(c,r,cols,rings){
+    if(P.pat==='solid')return false;
+    var theta=(c/cols)*Math.PI*2,t=r/rings,d=Math.max(P.dens,2);
+    var pat=t<0.3?zT:t>0.7?zB:zM;
+    if(pat==='solid')return false;
+    switch(pat){
+        case 'hex':{var hW=Math.PI*2/d,hH=1/(d*0.7);var cx=((theta%hW)/hW),cy=((t%hH)/hH);var off=Math.floor(r/(rings*hH))%2===0?0:0.5;cx-=off;if(cx<0)cx+=1;return Math.sqrt((cx-.5)*(cx-.5)+(cy-.5)*(cy-.5))<0.42;}
+        case 'diamond':{return Math.abs((theta%(Math.PI*2/d))/(Math.PI*2/d)-.5)+Math.abs((t%(1/d))/(1/d)-.5)<0.45;}
+        case 'circle':{var cW=Math.PI*2/d,cH=1/d;var cx2=(theta%cW)/cW,cy2=(t%cH)/cH;return Math.sqrt((cx2-.5)*(cx2-.5)+(cy2-.5)*(cy2-.5))<0.3;}
+        case 'wave':{var wy=Math.sin(theta*d)*0.1+.5;return Math.abs(((t%(1/d))/(1/d))-wy)<0.12;}
+        case 'lines':{var ls=Math.PI*2/d;var lp=theta%ls;return lp>ls*.25&&lp<ls*.75;}
+        default:return false;
+    }
+}
+
+// === BUILD GEOMETRY (RELIABLE) ===
+function buildGeometry(){
+    var segs=P.segs;
+    var rings=Math.max(16,Math.round(P.h/5));
+    var topSolid=Math.max(2,Math.round(rings*4/P.h));
+    var botSolid=Math.max(2,Math.round(rings*4/P.h));
+    var thick=P.thick;
+
+    // Pre-build all vertices in a grid: grid[ring][seg] = {ox,oy,oz, ix,iy,iz}
+    var grid=[];
+    for(var r=0;r<=rings;r++){
+        var t=r/rings;
+        var rad=getR(t);
+        var iRad=Math.max(rad-thick,0.5);
+        grid[r]=[];
+        for(var c=0;c<=segs;c++){
+            var th=(c/segs)*Math.PI*2;
+            grid[r][c]={
+                ox:rad*Math.cos(th), oy:t*P.h, oz:rad*Math.sin(th),
+                ix:iRad*Math.cos(th), iy:t*P.h, iz:iRad*Math.sin(th)
+            };
+        }
+    }
+
+    var verts=[];
+    var idx=[];
+
+    function av(x,y,z){verts.push(x,y,z);return verts.length/3-1;}
+
+    // Index helper: vi(r,c,side) returns vertex index in verts array
+    // We'll build vertices cell by cell for the pattern section to avoid gaps
+
+    // === SOLID TOP SECTION ===
+    for(var r=0;r<topSolid;r++){
+        for(var c=0;c<segs;c++){
+            var g=grid;
+            // Outer face
+            var o0=av(g[r][c].ox,g[r][c].oy,g[r][c].oz);
+            var o1=av(g[r+1][c].ox,g[r+1][c].oy,g[r+1][c].oz);
+            var o2=av(g[r][c+1].ox,g[r][c+1].oy,g[r][c+1].oz);
+            var o3=av(g[r+1][c+1].ox,g[r+1][c+1].oy,g[r+1][c+1].oz);
+            idx.push(o0,o1,o2,o1,o3,o2);
+
+            // Inner face
+            var i0=av(g[r][c].ix,g[r][c].iy,g[r][c].iz);
+            var i1=av(g[r+1][c].ix,g[r+1][c].iy,g[r+1][c].iz);
+            var i2=av(g[r][c+1].ix,g[r][c+1].iy,g[r][c+1].iz);
+            var i3=av(g[r+1][c+1].ix,g[r+1][c+1].iy,g[r+1][c+1].iz);
+            idx.push(i0,i2,i1,i1,i2,i3);
+
+            // Wall between outer and inner (top edge of cell)
+            var w0=av(g[r][c].ox,g[r][c].oy,g[r][c].oz);
+            var w1=av(g[r][c+1].ox,g[r][c+1].oy,g[r][c+1].oz);
+            var w2=av(g[r][c].ix,g[r][c].iy,g[r][c].iz);
+            var w3=av(g[r][c+1].ix,g[r][c+1].iy,g[r][c+1].iz);
+            idx.push(w0,w1,w2,w2,w1,w3);
+
+            // Wall between outer and inner (bottom edge)
+            if(r===topSolid-1){
+                var b0=av(g[r+1][c].ox,g[r+1][c].oy,g[r+1][c].oz);
+                var b1=av(g[r+1][c+1].ox,g[r+1][c+1].oy,g[r+1][c+1].oz);
+                var b2=av(g[r+1][c].ix,g[r+1][c].iy,g[r+1][c].iz);
+                var b3=av(g[r+1][c+1].ix,g[r+1][c+1].iy,g[r+1][c+1].iz);
+                idx.push(b0,b2,b1,b1,b2,b3);
+            }
+        }
+    }
+
+    // === PATTERN SECTION ===
+    for(var r=topSolid;r<rings-botSolid;r++){
+        for(var c=0;c<segs;c++){
+            var h00=isHole(c,r,segs,rings);
+            var h10=isHole(c,r+1,segs,rings);
+            var h01=isHole(c+1,r,segs,rings);
+            var h11=isHole(c+1,r+1,segs,rings);
+            var allS=!h00&&!h10&&!h01&&!h11;
+            var allH=h00&&h10&&h01&&h11;
+
+            var g=grid;
+            var o0=av(g[r][c].ox,g[r][c].oy,g[r][c].oz);
+            var o1=av(g[r+1][c].ox,g[r+1][c].oy,g[r+1][c].oz);
+            var o2=av(g[r][c+1].ox,g[r][c+1].oy,g[r][c+1].oz);
+            var o3=av(g[r+1][c+1].ox,g[r+1][c+1].oy,g[r+1][c+1].oz);
+            var i0=av(g[r][c].ix,g[r][c].iy,g[r][c].iz);
+            var i1=av(g[r+1][c].ix,g[r+1][c].iy,g[r+1][c].iz);
+            var i2=av(g[r][c+1].ix,g[r][c+1].iy,g[r][c+1].iz);
+            var i3=av(g[r+1][c+1].ix,g[r+1][c+1].iy,g[r+1][c+1].iz);
+
+            if(allS){
+                idx.push(o0,o1,o2,o1,o3,o2);
+                idx.push(i0,i2,i1,i1,i2,i3);
+            }else if(!allH){
+                if(!h00&&!h10&&!h01)idx.push(o0,o1,o2);
+                if(!h10&&!h11&&!h01)idx.push(o1,o3,o2);
+                if(!h00&&!h10&&!h01)idx.push(i0,i2,i1);
+                if(!h10&&!h11&&!h01)idx.push(i1,i2,i3);
+            }
+
+            // Hole walls: for each edge where one side is solid and other is hole
+            var edgeData=[
+                {hA:h00,hB:h10,oA:o0,oB:o1,iA:i0,iB:i1},
+                {hA:h01,hB:h11,oA:o2,oB:o3,iA:i2,iB:i3},
+                {hA:h00,hB:h01,oA:o0,oB:o2,iA:i0,iB:i2},
+                {hA:h10,hB:h11,oA:o1,oB:o3,iA:i1,iB:i3}
+            ];
+            edgeData.forEach(function(e){
+                if(e.hA!==e.hB){
+                    idx.push(e.oA,e.oB,e.iB,e.oA,e.iB,e.iA);
+                }
+            });
+
+            // Side walls at col=0 (seam)
+            if(c===0){
+                var sw0=av(g[r][c].ox,g[r][c].oy,g[r][c].oz);
+                var sw1=av(g[r+1][c].ox,g[r+1][c].oy,g[r+1][c].oz);
+                var sw2=av(g[r][c].ix,g[r][c].iy,g[r][c].iz);
+                var sw3=av(g[r+1][c].ix,g[r+1][c].iy,g[r+1][c].iz);
+                // Connect to last column
+                var le=g[r][segs],le1=g[r+1][segs];
+                var sw4=av(le.ox,le.oy,le.oz);
+                var sw5=av(le1.ox,le1.oy,le1.oz);
+                var sw6=av(le.ix,le.iy,le.iz);
+                var sw7=av(le1.ix,le1.iy,le1.iz);
+                idx.push(sw0,sw4,sw2,sw2,sw4,sw6);
+                idx.push(sw1,sw5,sw3,sw3,sw5,sw7);
+                // Wall at seam
+                idx.push(sw0,sw2,sw1,sw1,sw2,sw3);
+            }
+        }
+    }
+
+    // === SOLID BOTTOM SECTION ===
+    for(var r=rings-botSolid;r<rings;r++){
+        for(var c=0;c<segs;c++){
+            var g=grid;
+            var o0=av(g[r][c].ox,g[r][c].oy,g[r][c].oz);
+            var o1=av(g[r+1][c].ox,g[r+1][c].oy,g[r+1][c].oz);
+            var o2=av(g[r][c+1].ox,g[r][c+1].oy,g[r][c+1].oz);
+            var o3=av(g[r+1][c+1].ox,g[r+1][c+1].oy,g[r+1][c+1].oz);
+            idx.push(o0,o1,o2,o1,o3,o2);
+
+            var i0=av(g[r][c].ix,g[r][c].iy,g[r][c].iz);
+            var i1=av(g[r+1][c].ix,g[r+1][c].iy,g[r+1][c].iz);
+            var i2=av(g[r][c+1].ix,g[r][c+1].iy,g[r][c+1].iz);
+            var i3=av(g[r+1][c+1].ix,g[r+1][c+1].iy,g[r+1][c+1].iz);
+            idx.push(i0,i2,i1,i1,i2,i3);
+
+            // Bottom wall
+            if(r===rings-1){
+                var b0=av(g[r+1][c].ox,g[r+1][c].oy,g[r+1][c].oz);
+                var b1=av(g[r+1][c+1].ox,g[r+1][c+1].oy,g[r+1][c+1].oz);
+                var b2=av(g[r+1][c].ix,g[r+1][c].iy,g[r+1][c].iz);
+                var b3=av(g[r+1][c+1].ix,g[r+1][c+1].iy,g[r+1][c+1].iz);
+                idx.push(b0,b2,b1,b1,b2,b3);
+            }
+        }
+    }
+
+    // === TOP CAP ===
+    var topY=P.h;
+    var topRad=getR(1);
+    var topIR=Math.max(topRad-thick,0.5);
+    var tc=av(0,topY,0);
+    for(var c=0;c<segs;c++){
+        var th1=(c/segs)*Math.PI*2,th2=((c+1)/segs)*Math.PI*2;
+        var v1=av(topRad*Math.cos(th1),topY,topRad*Math.sin(th1));
+        var v2=av(topRad*Math.cos(th2),topY,topRad*Math.sin(th2));
+        idx.push(tc,v2,v1);
+    }
+    var tic=av(0,topY,0);
+    for(var c=0;c<segs;c++){
+        var th1=(c/segs)*Math.PI*2,th2=((c+1)/segs)*Math.PI*2;
+        var v1=av(topIR*Math.cos(th1),topY,topIR*Math.sin(th1));
+        var v2=av(topIR*Math.cos(th2),topY,topIR*Math.sin(th2));
+        idx.push(tic,v1,v2);
+    }
+
+    // === MOUNT HOLE ===
+    var mountR=Math.min(P.topD*0.2,12);
+    if(mountR>2){
+        var mountH=6;
+        var mc=av(0,topY+mountH,0);
+        for(var c=0;c<segs;c++){
+            var th1=(c/segs)*Math.PI*2,th2=((c+1)/segs)*Math.PI*2;
+            var v1=av(mountR*Math.cos(th1),topY+mountH,mountR*Math.sin(th1));
+            var v2=av(mountR*Math.cos(th2),topY+mountH,mountR*Math.sin(th2));
+            idx.push(mc,v1,v2);
+        }
+        for(var c=0;c<segs;c++){
+            var th1=(c/segs)*Math.PI*2,th2=((c+1)/segs)*Math.PI*2;
+            var v1o=av(mountR*Math.cos(th1),topY,mountR*Math.sin(th1));
+            var v2o=av(mountR*Math.cos(th2),topY,mountR*Math.sin(th2));
+            var v1i=av(mountR*Math.cos(th1),topY+mountH,mountR*Math.sin(th1));
+            var v2i=av(mountR*Math.cos(th2),topY+mountH,mountR*Math.sin(th2));
+            idx.push(v1o,v1i,v2o,v2o,v1i,v2i);
+        }
+    }
+
+    // === RIBS ===
+    if(P.ribs>0){
+        for(var rib=0;rib<P.ribs;rib++){
+            var rAngle=(rib/P.ribs)*Math.PI*2;
+            var rW=0.03;
+            for(var r=0;r<rings;r++){
+                var t1=r/rings,t2=(r+1)/rings;
+                var r1=getR(t1),r2=getR(t2);
+                var y1=t1*P.h,y2=t2*P.h;
+                var cA=Math.cos(rAngle),sA=Math.sin(rAngle);
+                var cB=Math.cos(rAngle+rW*2),sB=Math.sin(rAngle+rW*2);
+
+                var ra0=av(r1*cA,y1,r1*sA);
+                var ra1=av(r2*cA,y2,r2*sA);
+                var ra2=av((r1+thick*0.5)*cB,y1,(r1+thick*0.5)*sB);
+                var ra3=av((r2+thick*0.5)*cB,y2,(r2+thick*0.5)*sB);
+                idx.push(ra0,ra1,ra2,ra1,ra3,ra2);
+
+                var ir1=Math.max(r1-thick,0.5),ir2=Math.max(r2-thick,0.5);
+                var rb0=av(ir1*cA,y1,ir1*sA);
+                var rb1=av(ir2*cA,y2,ir2*sA);
+                var rb2=av(Math.max(ir1-thick*0.5,0.3)*cB,y1,Math.max(ir1-thick*0.5,0.3)*sB);
+                var rb3=av(Math.max(ir2-thick*0.5,0.3)*cB,y2,Math.max(ir2-thick*0.5,0.3)*sB);
+                idx.push(rb0,rb2,rb1,rb1,rb2,rb3);
+
+                idx.push(ra0,rb0,ra2,ra2,rb0,rb2);
+                idx.push(ra1,ra3,rb1,rb1,ra3,rb3);
+            }
+        }
+    }
+
+    var geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+    if(idx.length>0)geo.setIndex(new THREE.Uint32BufferAttribute(idx,1));
+    geo.computeVertexNormals();
+    return geo;
+}
+
+function regenerate(){
+    if(lampGroup){
+        scene.remove(lampGroup);
+        lampGroup.traverse(function(ch){
+            if(ch.geometry)ch.geometry.dispose();
+            if(ch.material){if(Array.isArray(ch.material))ch.material.forEach(function(m){m.dispose();});else ch.material.dispose();}
+        });
+        lampGroup=null;
+    }
+
+    try{
+        var geo=buildGeometry();
+        lampGroup=new THREE.Group();
+
+        var mat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.4,metalness:0.05,side:THREE.DoubleSide,transparent:true,opacity:0.88});
+        var mesh=new THREE.Mesh(geo,mat);
+        mesh.castShadow=true;mesh.receiveShadow=true;
+        lampGroup.add(mesh);
+
+        if(sMnt&&P.topD>30){
+            var mGeo=new THREE.TorusGeometry(Math.max(P.topD/2,8),2,8,32);
+            var mMat=new THREE.MeshStandardMaterial({color:0x999999,roughness:0.3,metalness:0.6});
+            var mMesh=new THREE.Mesh(mGeo,mMat);
+            mMesh.rotation.x=Math.PI/2;mMesh.position.y=P.h;mMesh.castShadow=true;
+            lampGroup.add(mMesh);
+        }
+
+        if(sRim&&P.botD>40){
+            var rGeo=new THREE.TorusGeometry(Math.max(P.botD/2,8),2.5,8,36);
+            var rMesh=new THREE.Mesh(rGeo,new THREE.MeshStandardMaterial({color:0x999999,roughness:0.3,metalness:0.5}));
+            rMesh.rotation.x=Math.PI/2;rMesh.position.y=1.5;rMesh.castShadow=true;
+            lampGroup.add(rMesh);
+        }
+
+        scene.add(lampGroup);
+        iL.position.set(0,P.h/2,0);
+        bMesh.position.set(0,P.h/2,0);
+        ctrl.target.set(0,P.h/2,0);ctrl.update();
+
+        var triC=geo.index?geo.index.count/3:geo.attributes.position.count/3;
+        updateChecks();
+        drawLight();drawUnfold();
+    }catch(e){
+        console.error('Build error:',e);
+    }
+}
+
+function updateChecks(){
+    var ch=[];
+    if(P.thick>=1.2)ch.push({ok:true,m:'Толщина '+P.thick+'мм ✓'});
+    else ch.push({ok:false,m:'Мин толщина 1.2мм'});
+    if(P.hole>P.thick*1.5)ch.push({ok:true,m:'Отверстия ✓'});
+    else ch.push({ok:false,m:'Отверстия малы'});
+    if(P.botD/2>=25)ch.push({ok:true,m:'Низ ⌀ ✓'});
+    else ch.push({ok:false,m:'Низ узкий'});
+    if(P.topD/2>=12)ch.push({ok:true,m:'Верх ⌀ ✓'});
+    else ch.push({ok:false,m:'Верх узкий'});
+    if(P.h>180&&P.ribs===0)ch.push({ok:false,m:'Нужны рёбра'});
+    var h='';ch.forEach(function(c){h+=c.ok?'<div class="badge-ok">✓ '+c.m+'</div>':'<div class="badge-w">✗ '+c.m+'</div>';});
+    document.getElementById('checks').innerHTML=h;
+}
+
+// === LIGHT SIM ===
+var lCv=document.getElementById('light-cv'),lCtx=lCv.getContext('2d');
+function drawLight(){
+    var W2=lCv.width,H2=lCv.height;
+    lCtx.clearRect(0,0,W2,H2);lCtx.fillStyle='#0a0a14';lCtx.fillRect(0,0,W2,H2);
+    if(!sLight){lCtx.fillStyle='#444';lCtx.font='10px Inter';lCtx.textAlign='center';lCtx.fillText('Выкл',W2/2,H2/2);return;}
+    var cx=W2/2,sc=H2/(P.h*1.1);
+    var tW=P.topD/2*sc,bW=P.botD/2*sc,h=P.h*sc,yO=(H2-h)/2;
+    lCtx.beginPath();lCtx.moveTo(cx-tW,yO);lCtx.lineTo(cx-bW,yO+h);lCtx.lineTo(cx+bW,yO+h);lCtx.lineTo(cx+tW,yO);lCtx.closePath();
+    var g=lCtx.createLinearGradient(cx,yO,cx,yO+h);
+    g.addColorStop(0,'rgba(255,200,100,0.2)');g.addColorStop(0.5,'rgba(255,170,60,0.4)');g.addColorStop(1,'rgba(255,140,40,0.2)');
+    lCtx.fillStyle=g;lCtx.fill();
+    lCtx.strokeStyle='rgba(251,191,36,0.25)';lCtx.lineWidth=1;lCtx.stroke();
+    var by=yO+h*0.5;
+    var gl=lCtx.createRadialGradient(cx,by,0,cx,by,12);
+    gl.addColorStop(0,'rgba(255,220,100,0.6)');gl.addColorStop(1,'rgba(255,200,80,0)');
+    lCtx.fillStyle=gl;lCtx.beginPath();lCtx.arc(cx,by,12,0,Math.PI*2);lCtx.fill();
+    lCtx.fillStyle='#fbbf24';lCtx.font='8px Inter';lCtx.textAlign='center';lCtx.fillText('Свет',cx,H2-4);
+}
+
+// === UNFOLD ===
+var uCv=document.getElementById('unfold-cv'),uCtx=uCv.getContext('2d');
+var uZone='top';
+document.querySelectorAll('.tab-b').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.tab-b').forEach(function(e){e.classList.remove('active');});b.classList.add('active');uZone=b.dataset.z;drawUnfold();});});
+
+function drawUnfold(){
+    var W2=uCv.width,H2=uCv.height;
+    uCtx.clearRect(0,0,W2,H2);uCtx.fillStyle='#0a0a14';uCtx.fillRect(0,0,W2,H2);
+    var pat=uZone==='top'?zT:uZone==='mid'?zM:zB;
+    var d=Math.max(P.dens,2),cols=48,rings=40,sc=H2/rings;
+    uCtx.strokeStyle='rgba(251,191,36,0.06)';uCtx.strokeRect(0,0,W2,H2);
+    for(var r=0;r<rings;r++){
+        for(var c=0;c<cols;c++){
+            var x=(c/cols)*W2,y=r*sc,cw=W2/cols;
+            var theta=(c/cols)*Math.PI*2,t=r/rings,isH=false;
+            if(pat!=='solid'){
+                switch(pat){
+                    case 'hex':{var hW=Math.PI*2/d,hH=1/(d*0.7);var cx2=((theta%hW)/hW),cy2=((t%hH)/hH);var off=Math.floor(r/(rings*hH))%2===0?0:0.5;cx2-=off;if(cx2<0)cx2+=1;isH=Math.sqrt((cx2-.5)*(cx2-.5)+(cy2-.5)*(cy2-.5))<0.42;break;}
+                    case 'diamond':{isH=Math.abs((theta%(Math.PI*2/d))/(Math.PI*2/d)-.5)+Math.abs((t%(1/d))/(1/d)-.5)<0.45;break;}
+                    case 'circle':{var cW=Math.PI*2/d,cH=1/d;var cx3=(theta%cW)/cW,cy3=(t%cH)/cH;isH=Math.sqrt((cx3-.5)*(cx3-.5)+(cy3-.5)*(cy3-.5))<0.3;break;}
+                    case 'wave':{var wy=Math.sin(theta*d)*0.1+.5;isH=Math.abs(((t%(1/d))/(1/d))-wy)<0.12;break;}
+                    case 'lines':{var ls=Math.PI*2/d;isH=(theta%ls)>ls*.25&&(theta%ls)<ls*.75;break;}
+                }
+            }
+            if(isH){uCtx.fillStyle='rgba(6,6,16,0.95)';uCtx.fillRect(x+1,y+1,cw-2,sc-2);}
+            else{uCtx.fillStyle='rgba(251,191,36,0.1)';uCtx.fillRect(x+1,y+1,cw-2,sc-2);}
+        }
+    }
+    uCtx.fillStyle='#fbbf24';uCtx.font='8px Inter';uCtx.textAlign='center';
+    uCtx.fillText({top:'Верх',mid:'Серед',bot:'Низ'}[uZone]+'—'+pat,W2/2,H2-4);
+}
+
+// === EXPORT ===
+document.getElementById('export').addEventListener('click',function(){
+    if(!lampGroup)return;
+    var exp=new THREE.STLExporter();
+    var stl=exp.parse(lampGroup,{binary:false});
+    var blob=new Blob([stl],{type:'application/sla'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;a.download='shade_'+Date.now()+'.stl';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+});
+
+// === RESIZE ===
+window.addEventListener('resize',function(){W=window.innerWidth;H=window.innerHeight;camera.aspect=W/H;camera.updateProjectionMatrix();renderer.setSize(W,H);});
+
+// === ANIMATE ===
+function animate(){requestAnimationFrame(animate);ctrl.update();bM.opacity=0.5+Math.sin(Date.now()*0.003)*0.1;iL.intensity=1.2+Math.sin(Date.now()*0.003)*0.3;renderer.render(scene,camera);}
+
+drawProf();regenerate();animate();
+})();
+</script>
+</body>
+</html>
+
