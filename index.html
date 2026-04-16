@@ -368,6 +368,8 @@ function isHole(c,r,cols,rings){
     if(P.pat==='solid')return false;
     var theta=(c/cols)*Math.PI*2,t=r/rings,d=Math.max(P.dens,2);
     var pat=t<0.3?zT:t>0.7?zB:zM;
+    // Верхняя и нижняя зоны всегда сплошные
+    if(t<0.25||t>0.75)return false;
     if(pat==='solid')return false;
     switch(pat){
         case 'hex':{var hW=Math.PI*2/d,hH=1/(d*0.7);var cx=((theta%hW)/hW),cy=((t%hH)/hH);var off=Math.floor(r/(rings*hH))%2===0?0:0.5;cx-=off;if(cx<0)cx+=1;return Math.sqrt((cx-.5)*(cx-.5)+(cy-.5)*(cy-.5))<0.42;}
